@@ -3,7 +3,6 @@ name: ci
 on:
   push:
     branches: [main]
-    paths-ignore: ["deploy/**"]
   workflow_dispatch:
 
 permissions:
@@ -39,34 +38,3 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  update-manifests:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install kustomize
-        run: |
-          cd /tmp
-          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz" | tar -xz
-          sudo mv kustomize /usr/local/bin/kustomize
-          kustomize version
-
-      - name: Bump image tag in deploy overlay
-        run: |
-          cd deploy
-          kustomize edit set image "ghcr.io/${{ github.repository }}=ghcr.io/${{ github.repository }}:${{ github.sha }}"
-          kustomize build .
-
-      - name: Commit and push manifests
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
-            echo "no manifest changes"
-            exit 0
-          fi
-          git add deploy/
-          git commit -m "deploy: bump test-app image to ${{ github.sha }}"
-          git push
